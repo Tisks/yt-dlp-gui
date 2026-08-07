@@ -63,8 +63,22 @@ class DownloaderApp:
         )
         path_combo.pack(pady=(0, 4))
 
-        url_label = ttk.Label(container, text="URL")
-        url_label.pack(pady=(0, 4), fill="x", anchor="w")
+        url_header = ttk.Frame(container)
+        url_header.pack(pady=(0, 4), fill="x")
+
+        url_label = ttk.Label(url_header, text="URL")
+        url_label.pack(side="left")
+
+        frame_bg = ttk.Style().lookup("TFrame", "background") or "systemWindowBackgroundColor"
+
+        add_row_button = tk.Canvas(
+            url_header, width=22, height=22, highlightthickness=0, bg=frame_bg
+        )
+        add_row_button.pack(side="left", padx=(6, 0))
+        add_row_button.create_oval(1, 1, 21, 21, fill="#565759", outline="black", width=1)
+        add_row_button.create_text(11, 11, text="+", fill="white", font=("", 13, "bold"), anchor="center")
+        add_row_button.config(cursor="pointinghand")
+        add_row_button.bind("<Button-1>", lambda event: self._on_add_row_clicked())
 
         rows_outer = ttk.Frame(container)
         rows_outer.pack(pady=(0, 4), fill="x")
@@ -100,6 +114,10 @@ class DownloaderApp:
 
         self.download_button = ttk.Button(button_row, text="Download", command=self.on_download)
         self.download_button.pack(side="left")
+
+    def _on_add_row_clicked(self):
+        row = self._add_url_row()
+        row.entry.focus_set()
 
     def _add_url_row(self, initial_url=""):
         is_first_row = not self.url_rows
