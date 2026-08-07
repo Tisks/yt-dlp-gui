@@ -357,8 +357,15 @@ class DownloaderApp:
         return "break"
 
     def _on_notebook_motion(self, event):
-        cursor = platform_support.CURSOR_CLICKABLE if self._tab_close_hit(event) else ""
-        self.notebook.config(cursor=cursor)
+        clickable = self._tab_close_hit(event) is not None or self._is_plus_tab_hit(event)
+        self.notebook.config(cursor=platform_support.CURSOR_CLICKABLE if clickable else "")
+
+    def _is_plus_tab_hit(self, event):
+        try:
+            index = self.notebook.index(f"@{event.x},{event.y}")
+        except tk.TclError:
+            return False
+        return index == self.notebook.index(self.plus_frame)
 
     def _tab_close_hit(self, event):
         """The tab whose ✕ was clicked, or None."""
