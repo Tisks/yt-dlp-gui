@@ -10,7 +10,7 @@ import url_server
 
 MAX_VISIBLE_ROWS = 3
 
-_URLRow = namedtuple("_URLRow", "entry channel_var frame")
+_URLRow = namedtuple("_URLRow", "entry channel_var frame url_var")
 
 
 class DownloaderApp:
@@ -89,20 +89,40 @@ class DownloaderApp:
         self.download_button.pack()
 
     def _add_url_row(self, initial_url=""):
+        is_first_row = not self.url_rows
+
         row_frame = ttk.Frame(self.rows_frame)
         row_frame.pack(pady=(0, 6), fill="x")
 
-        entry = ttk.Entry(row_frame, width=32)
-        entry.insert(0, initial_url)
+        url_var = tk.StringVar(value=initial_url)
+        entry = ttk.Entry(row_frame, width=32, textvariable=url_var)
         entry.pack(side="left")
 
         channel_var = tk.BooleanVar(value=False)
         channel_check = ttk.Checkbutton(row_frame, text="Channel", variable=channel_var)
         channel_check.pack(side="left", padx=(6, 0))
 
-        row = _URLRow(entry, channel_var, row_frame)
+        row = _URLRow(entry, channel_var, row_frame, url_var)
         self.url_rows.append(row)
+
+        # The first row is the app's permanent URL field; only rows added on
+        # top of it should disappear when the user clears them back out.
+        if not is_first_row:
+            url_var.trace_add("write", lambda *_args, row=row: self._on_row_url_changed(row))
+
         return row
+
+    def _on_row_url_changed(self, row):
+        if row.entry.get().strip():
+            return
+        self.root.after_idle(lambda: self._remove_url_row(row))
+
+    def _remove_url_row(self, row):
+        if row not in self.url_rows:
+            return
+        self.url_rows.remove(row)
+        row.frame.destroy()
+        self._update_rows_layout()
 
     def _update_rows_layout(self):
         self.root.update_idletasks()
