@@ -13,20 +13,20 @@ def build_env():
     return env
 
 
-def _shared_flags():
+def _shared_flags(cookies_browser):
     return [
-        "--cookies-from-browser", config.COOKIES_BROWSER,
+        "--cookies-from-browser", cookies_browser,
         "--js-runtimes", config.JS_RUNTIME,
         "-f", config.VIDEO_FORMAT,
         "--merge-output-format", config.MERGE_FORMAT,
     ]
 
 
-def build_channel_command(urls, playlist_items=""):
+def build_channel_command(urls, playlist_items="", cookies_browser=config.DEFAULT_COOKIES_BROWSER):
     command = [
         "yt-dlp",
         "-P", config.CHANNEL_DOWNLOAD_PATH,
-        *_shared_flags(),
+        *_shared_flags(cookies_browser),
     ]
     if playlist_items:
         command += ["--playlist-items", playlist_items]
@@ -48,8 +48,8 @@ def build_channel_command(urls, playlist_items=""):
     return command
 
 
-def build_single_command(urls, path, playlist_items=""):
-    command = ["yt-dlp", "-P", path, *_shared_flags()]
+def build_single_command(urls, path, playlist_items="", cookies_browser=config.DEFAULT_COOKIES_BROWSER):
+    command = ["yt-dlp", "-P", path, *_shared_flags(cookies_browser)]
     if playlist_items:
         command += ["--playlist-items", playlist_items]
     command += list(urls)

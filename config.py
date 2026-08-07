@@ -1,6 +1,7 @@
 EXTRA_PATHS = ["/usr/local/bin", "/opt/homebrew/bin"]
 
-COOKIES_BROWSER = "chrome"
+COOKIE_BROWSER_CHOICES = ["chrome", "firefox", "opera"]
+DEFAULT_COOKIES_BROWSER = "chrome"
 JS_RUNTIME = "deno"
 VIDEO_FORMAT = "bv*+ba/b"
 MERGE_FORMAT = "mkv"

@@ -13,7 +13,9 @@ import url_server
 MAX_VISIBLE_ROWS = 3
 PLAYLIST_ITEMS_PLACEHOLDER = "e.g. 1,3,7-10"
 
-_URLRow = namedtuple("_URLRow", "entry archive_var frame url_var playlist_items_var tick_label")
+_URLRow = namedtuple(
+    "_URLRow", "entry archive_var frame url_var playlist_items_var tick_label cookies_browser_var"
+)
 
 
 class DownloaderApp:
@@ -160,7 +162,29 @@ class DownloaderApp:
         archive_check = ttk.Checkbutton(row_frame, text="Archive mode", variable=archive_var)
         archive_check.pack(side="left", padx=(6, 0))
 
-        row = _URLRow(entry, archive_var, row_frame, url_var, playlist_items_var, tick_label)
+        # Only offer browsers that actually have a profile on this machine --
+        # picking one with no cookie database just makes yt-dlp fail outright.
+        available_browsers = platform_support.installed_browsers(config.COOKIE_BROWSER_CHOICES)
+        if not available_browsers:
+            available_browsers = config.COOKIE_BROWSER_CHOICES
+
+        cookies_browser_var = tk.StringVar(
+            value=config.DEFAULT_COOKIES_BROWSER
+            if config.DEFAULT_COOKIES_BROWSER in available_browsers
+            else available_browsers[0]
+        )
+        cookies_browser_combo = ttk.Combobox(
+            row_frame,
+            textvariable=cookies_browser_var,
+            values=available_browsers,
+            state="readonly",
+            width=7,
+        )
+        cookies_browser_combo.pack(side="left", padx=(6, 0))
+
+        row = _URLRow(
+            entry, archive_var, row_frame, url_var, playlist_items_var, tick_label, cookies_browser_var
+        )
         self.url_rows.append(row)
 
         url_var.trace_add("write", lambda *_args, row=row: self._on_row_url_edited(row))
@@ -229,7 +253,9 @@ class DownloaderApp:
             url = row.entry.get().strip()
             if not url:
                 continue
-            entries.append((url, row.archive_var.get(), self._get_playlist_items(row)))
+            entries.append(
+                (url, row.archive_var.get(), self._get_playlist_items(row), row.cookies_browser_var.get())
+            )
         return entries
 
     def on_download(self):
@@ -250,24 +276,27 @@ class DownloaderApp:
         self.download_button.config(state="disabled")
 
         # yt-dlp accepts more than one URL per invocation, so rows that share
-        # the same archive-mode/playlist-items settings are downloaded
-        # together in a single command instead of spawning one process per row.
+        # the same archive-mode/playlist-items/cookies-browser settings are
+        # downloaded together in a single command instead of spawning one
+        # process per row.
         groups = {}
         for row in self.url_rows:
             url = row.entry.get().strip()
             if not url:
                 continue
-            key = (row.archive_var.get(), self._get_playlist_items(row))
+            key = (row.archive_var.get(), self._get_playlist_items(row), row.cookies_browser_var.get())
             groups.setdefault(key, []).append(row)
 
         self.pending_downloads = 0
         self.active_processes = []
-        for (is_archive, playlist_items), rows in groups.items():
+        for (is_archive, playlist_items, cookies_browser), rows in groups.items():
             urls = [row.entry.get().strip() for row in rows]
             if is_archive:
-                command = downloader.build_channel_command(urls, playlist_items)
+                command = downloader.build_channel_command(urls, playlist_items, cookies_browser)
             else:
-                command = downloader.build_single_command(urls, self.path_var.get(), playlist_items)
+                command = downloader.build_single_command(
+                    urls, self.path_var.get(), playlist_items, cookies_browser
+                )
 
             try:
                 proc = downloader.start_download(command, self.stdout_queue, self.stderr_queue, self.done_queue)
