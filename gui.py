@@ -60,7 +60,7 @@ class DownloaderApp:
             textvariable=self.path_var,
             values=config.PATH_OPTIONS,
             state="readonly",
-            width=37,
+            width=40,
         )
         path_combo.pack(pady=(0, 4))
 
