@@ -6,6 +6,7 @@ from collections import namedtuple
 
 import config
 import downloader
+import notifier
 import url_server
 
 MAX_VISIBLE_ROWS = 3
@@ -238,6 +239,11 @@ class DownloaderApp:
         last_row.entry.delete(0, "end")
         last_row.entry.insert(0, url)
         self.last_pasted_row = last_row
+
+        # Reaching this point means url_server actually queued the URL, so the
+        # notification confirms a real paste rather than firing on every
+        # shortcut press regardless of whether it succeeded.
+        notifier.notify("yt-dlp-gui", "URL added")
 
     def _poll_download_trigger(self):
         triggered = False
