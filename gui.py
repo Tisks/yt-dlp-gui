@@ -357,15 +357,22 @@ class DownloaderApp:
         return "break"
 
     def _on_notebook_motion(self, event):
-        clickable = self._tab_close_hit(event) is not None or self._is_plus_tab_hit(event)
-        self.notebook.config(cursor=platform_support.CURSOR_CLICKABLE if clickable else "")
-
-    def _is_plus_tab_hit(self, event):
         try:
             index = self.notebook.index(f"@{event.x},{event.y}")
         except tk.TclError:
-            return False
-        return index == self.notebook.index(self.plus_frame)
+            index = None
+
+        if index is not None and index == self.notebook.index(self.plus_frame):
+            cursor = platform_support.CURSOR_CLICKABLE
+        elif self._tab_close_hit(event) is not None:
+            cursor = platform_support.CURSOR_CLICKABLE
+        elif index is not None and 0 <= index < len(self.tabs):
+            # The label body is what double-click renames -- CURSOR_TEXT signals
+            # that, the same way the URL entries do for typing.
+            cursor = platform_support.CURSOR_TEXT
+        else:
+            cursor = ""
+        self.notebook.config(cursor=cursor)
 
     def _tab_close_hit(self, event):
         """The tab whose ✕ was clicked, or None."""
