@@ -22,11 +22,15 @@ def _shared_flags():
     ]
 
 
-def build_channel_command(urls):
+def build_channel_command(urls, playlist_items=""):
     command = [
         "yt-dlp",
         "-P", config.CHANNEL_DOWNLOAD_PATH,
         *_shared_flags(),
+    ]
+    if playlist_items:
+        command += ["--playlist-items", playlist_items]
+    command += [
         "--write-subs",
         "--write-auto-subs",
         "--embed-subs",
@@ -44,8 +48,10 @@ def build_channel_command(urls):
     return command
 
 
-def build_single_command(urls, path):
+def build_single_command(urls, path, playlist_items=""):
     command = ["yt-dlp", "-P", path, *_shared_flags()]
+    if playlist_items:
+        command += ["--playlist-items", playlist_items]
     command += list(urls)
     return command
 

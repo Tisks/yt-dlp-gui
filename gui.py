@@ -10,8 +10,9 @@ import notifier
 import url_server
 
 MAX_VISIBLE_ROWS = 3
+PLAYLIST_ITEMS_PLACEHOLDER = "e.g. 1,3,7-10"
 
-_URLRow = namedtuple("_URLRow", "entry channel_var frame url_var")
+_URLRow = namedtuple("_URLRow", "entry archive_var frame url_var playlist_items_var")
 
 
 class DownloaderApp:
@@ -110,11 +111,31 @@ class DownloaderApp:
         entry = ttk.Entry(row_frame, width=32, textvariable=url_var)
         entry.pack(side="left")
 
-        channel_var = tk.BooleanVar(value=False)
-        channel_check = ttk.Checkbutton(row_frame, text="Channel", variable=channel_var)
-        channel_check.pack(side="left", padx=(6, 0))
+        playlist_items_var = tk.StringVar(value=PLAYLIST_ITEMS_PLACEHOLDER)
+        playlist_items_entry = ttk.Entry(row_frame, width=9, textvariable=playlist_items_var)
+        playlist_items_entry.pack(side="left", padx=(6, 0))
+        default_fg = playlist_items_entry.cget("foreground")
+        placeholder_fg = "gray"
+        playlist_items_entry.config(foreground=placeholder_fg)
 
-        row = _URLRow(entry, channel_var, row_frame, url_var)
+        def on_playlist_items_focus_in(event):
+            if playlist_items_var.get() == PLAYLIST_ITEMS_PLACEHOLDER:
+                playlist_items_entry.delete(0, "end")
+                playlist_items_entry.config(foreground=default_fg)
+
+        def on_playlist_items_focus_out(event):
+            if not playlist_items_var.get().strip():
+                playlist_items_entry.insert(0, PLAYLIST_ITEMS_PLACEHOLDER)
+                playlist_items_entry.config(foreground=placeholder_fg)
+
+        playlist_items_entry.bind("<FocusIn>", on_playlist_items_focus_in)
+        playlist_items_entry.bind("<FocusOut>", on_playlist_items_focus_out)
+
+        archive_var = tk.BooleanVar(value=False)
+        archive_check = ttk.Checkbutton(row_frame, text="Archive mode", variable=archive_var)
+        archive_check.pack(side="left", padx=(6, 0))
+
+        row = _URLRow(entry, archive_var, row_frame, url_var, playlist_items_var)
         self.url_rows.append(row)
 
         # The first row is the app's permanent URL field; only rows added on
@@ -152,13 +173,19 @@ class DownloaderApp:
 
         self.rows_canvas.configure(scrollregion=bbox)
 
+    def _get_playlist_items(self, row):
+        value = row.playlist_items_var.get().strip()
+        if value == PLAYLIST_ITEMS_PLACEHOLDER:
+            return ""
+        return value
+
     def _collect_url_entries(self):
         entries = []
         for row in self.url_rows:
             url = row.entry.get().strip()
             if not url:
                 continue
-            entries.append((url, row.channel_var.get()))
+            entries.append((url, row.archive_var.get(), self._get_playlist_items(row)))
         return entries
 
     def on_download(self):
@@ -177,19 +204,19 @@ class DownloaderApp:
         self.download_button.config(state="disabled")
 
         # yt-dlp accepts more than one URL per invocation, so URLs that share
-        # a checkbox state are downloaded together in a single command instead
-        # of spawning one process per row.
+        # the same archive-mode/playlist-items settings are downloaded
+        # together in a single command instead of spawning one process per row.
         groups = {}
-        for url, is_channel in entries:
-            groups.setdefault(is_channel, []).append(url)
+        for url, is_archive, playlist_items in entries:
+            groups.setdefault((is_archive, playlist_items), []).append(url)
 
         self.pending_downloads = 0
         self.active_processes = []
-        for is_channel, urls in groups.items():
-            if is_channel:
-                command = downloader.build_channel_command(urls)
+        for (is_archive, playlist_items), urls in groups.items():
+            if is_archive:
+                command = downloader.build_channel_command(urls, playlist_items)
             else:
-                command = downloader.build_single_command(urls, self.path_var.get())
+                command = downloader.build_single_command(urls, self.path_var.get(), playlist_items)
 
             try:
                 proc = downloader.start_download(command, self.stdout_queue, self.stderr_queue, self.done_queue)
@@ -315,7 +342,7 @@ class DownloaderApp:
             triggered = True
 
         if triggered and self.last_pasted_row in self.url_rows:
-            self.last_pasted_row.channel_var.set(True)
+            self.last_pasted_row.archive_var.set(True)
 
     def run(self):
         self.root.mainloop()
