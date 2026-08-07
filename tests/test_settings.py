@@ -30,7 +30,6 @@ import settings
 
 notifier.notify = lambda *a: None
 gui.notifier.notify = lambda *a: None
-downloader.validate_url = lambda *a, **k: True
 downloader.start_download = lambda command, *a: type("P", (), {"pid": 1})()
 
 

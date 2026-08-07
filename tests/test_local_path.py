@@ -24,7 +24,6 @@ import notifier
 notified = []
 for _module in (notifier, gui.notifier, download_tab.notifier):
     _module.notify = lambda title, message: notified.append(message)
-downloader.validate_url = lambda *a, **k: True
 
 started = []
 

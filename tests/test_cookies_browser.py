@@ -24,7 +24,6 @@ import platform_support
 
 notifier.notify = lambda *a: None
 gui.notifier.notify = lambda *a: None
-downloader.validate_url = lambda *a, **k: True
 
 started = []
 

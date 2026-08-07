@@ -52,5 +52,3 @@ URL_SERVER_PORT_SPAN = 11
 URL_SERVER_PORTS = range(URL_SERVER_PORT, URL_SERVER_PORT + URL_SERVER_PORT_SPAN)
 # Returned by /ping so the extension can tell our server from a stranger's.
 URL_SERVER_IDENTITY = APP_NAME
-
-URL_VALIDATE_TIMEOUT = 30

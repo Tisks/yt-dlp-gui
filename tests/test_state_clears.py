@@ -23,7 +23,6 @@ import notifier
 
 for _module in (notifier, gui.notifier, download_tab.notifier):
     _module.notify = lambda *a: None
-downloader.validate_url = lambda *a, **k: True
 
 real_start = downloader.start_download
 exit_code = [0]

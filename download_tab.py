@@ -48,7 +48,6 @@ class DownloadTab:
         self.stdout_queue = queue.Queue()
         self.stderr_queue = queue.Queue()
         self.done_queue = queue.Queue()
-        self.validation_result_queue = queue.Queue()
 
         self.url_rows = []
         self.last_pasted_row = None
@@ -58,8 +57,6 @@ class DownloadTab:
         self.suppress_output = False
         self.has_run = False
         self.had_failure = False
-        self._validating_rows = set()
-        self._validated_urls = {}
 
         self.frame = ttk.Frame(notebook, padding=(0, 8, 0, 0))
         self._build_widgets()
@@ -340,12 +337,6 @@ class DownloadTab:
         if remove_button is not None:
             remove_button.bind("<Button-1>", lambda event, row=row: self._on_remove_row_clicked(row))
 
-        entry.bind(
-            "<<Paste>>",
-            lambda event, row=row: self.root.after_idle(lambda: self._validate_row(row)),
-            add="+",
-        )
-
         url_var.trace_add("write", lambda *_args, row=row: self._on_row_url_edited(row))
         if not is_first_row:
             url_var.trace_add("write", lambda *_args, row=row: self._on_row_url_changed(row))
@@ -395,58 +386,6 @@ class DownloadTab:
         self.url_rows.remove(row)
         row.frame.destroy()
         self._update_rows_layout()
-        self._validating_rows.discard(id(row))
-        self._validated_urls.pop(id(row), None)
-
-    # ------------------------------------------------------------ validation
-
-    def _validate_row(self, row):
-        if row not in self.url_rows:
-            return
-        url = row.entry.get().strip()
-        if not url:
-            return
-        row_id = id(row)
-        if self._validated_urls.get(row_id) == url:
-            return
-        if row_id in self._validating_rows:
-            return
-
-        cookies_browser = self._row_cookies_browser(row)
-        self._validating_rows.add(row_id)
-        threading.Thread(
-            target=self._validate_row_worker, args=(row, url, cookies_browser), daemon=True
-        ).start()
-
-    def _validate_row_worker(self, row, url, cookies_browser):
-        is_valid = downloader.validate_url(url, cookies_browser)
-        self.validation_result_queue.put((row, url, is_valid))
-
-    def _poll_validation_results(self):
-        while True:
-            try:
-                row, url, is_valid = self.validation_result_queue.get_nowait()
-            except queue.Empty:
-                break
-            self._validating_rows.discard(id(row))
-            if row not in self.url_rows or row.entry.get().strip() != url:
-                continue
-            if is_valid:
-                self._validated_urls[id(row)] = url
-            else:
-                self._reject_invalid_row(row)
-
-    def _reject_invalid_row(self, row):
-        notifier.notify(config.APP_NAME, "Not supported or no media detected")
-        self._validated_urls.pop(id(row), None)
-
-        if row.is_first:
-            row.entry.delete(0, "end")
-            row.playlist_items_var.set(PLAYLIST_ITEMS_PLACEHOLDER)
-            row.playlist_items_entry.config(foreground=PLACEHOLDER_FG)
-            row.archive_var.set(False)
-        else:
-            self._remove_url_row(row)
 
     # -------------------------------------------------------- incoming URLs
 
@@ -466,7 +405,6 @@ class DownloadTab:
         else:
             self.last_pasted_row = self._add_url_row(url, cookies_browser=browser)
 
-        self._validate_row(self.last_pasted_row)
         return True
 
     def check_archive_on_last_pasted(self):
@@ -660,7 +598,6 @@ class DownloadTab:
             self._set_row_inputs_enabled(True)
             self.active_processes = []
 
-        self._poll_validation_results()
         self._forget_result_when_emptied()
 
     def destroy(self):

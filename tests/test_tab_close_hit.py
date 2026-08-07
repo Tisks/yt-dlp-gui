@@ -29,7 +29,6 @@ notified = []
 notifier.notify = lambda title, message: notified.append(message)
 gui.notifier.notify = lambda title, message: notified.append(message)
 download_tab.notifier.notify = lambda title, message: notified.append(message)
-downloader.validate_url = lambda *a, **k: True
 
 real_start = downloader.start_download
 

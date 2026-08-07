@@ -57,26 +57,6 @@ def build_single_command(urls, path, playlist_items="", cookies_browser=None):
     return command
 
 
-def build_validate_command(url, cookies_browser=None):
-    return [config.YT_DLP_BIN, "--simulate", "--no-warnings", *_shared_flags(cookies_browser), url]
-
-
-def validate_url(url, cookies_browser=None):
-    command = build_validate_command(url, cookies_browser)
-    try:
-        result = subprocess.run(
-            command,
-            env=build_env(),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=config.URL_VALIDATE_TIMEOUT,
-            **platform_support.subprocess_flags(),
-        )
-    except (subprocess.TimeoutExpired, OSError):
-        return False
-    return result.returncode == 0
-
-
 def stream_output(pipe, line_queue):
     for line in pipe:
         line_queue.put(line)

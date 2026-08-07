@@ -24,7 +24,6 @@ import settings
 notifier.notify = lambda *a: None
 gui.notifier.notify = lambda *a: None
 download_tab.notifier.notify = lambda *a: None
-downloader.validate_url = lambda *a, **k: True
 
 real_start = downloader.start_download
 exit_code = [0]
