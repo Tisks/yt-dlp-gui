@@ -7,6 +7,7 @@ from collections import namedtuple
 import config
 import downloader
 import notifier
+import platform_support
 import url_server
 
 MAX_VISIBLE_ROWS = 3
@@ -203,7 +204,7 @@ class DownloaderApp:
         self.rows_canvas.configure(scrollregion=bbox)
 
     def _on_rows_mousewheel(self, event):
-        self.rows_canvas.yview_scroll(int(-1 * event.delta), "units")
+        self.rows_canvas.yview_scroll(platform_support.normalize_wheel_delta(event), "units")
 
     def _on_rows_area_enter(self, event):
         # <MouseWheel> only ever fires on the widget directly under the
