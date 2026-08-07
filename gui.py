@@ -92,6 +92,8 @@ class DownloaderApp:
         self.rows_canvas.create_window((0, 0), window=self.rows_frame, anchor="nw")
 
         self.rows_frame.bind("<Configure>", lambda event: self._update_rows_layout())
+        self.rows_canvas.bind("<Enter>", self._on_rows_area_enter)
+        self.rows_canvas.bind("<Leave>", self._on_rows_area_leave)
 
         self._add_url_row()
 
@@ -190,6 +192,20 @@ class DownloaderApp:
             self.rows_scrollbar.pack(side="right", fill="y")
 
         self.rows_canvas.configure(scrollregion=bbox)
+
+    def _on_rows_mousewheel(self, event):
+        self.rows_canvas.yview_scroll(int(-1 * event.delta), "units")
+
+    def _on_rows_area_enter(self, event):
+        # <MouseWheel> only ever fires on the widget directly under the
+        # cursor, so a child Entry/Checkbutton would swallow it before the
+        # canvas ever saw it. Binding to the whole root while hovering the
+        # rows area routes the event through regardless of which child is
+        # actually under the pointer.
+        self.root.bind_all("<MouseWheel>", self._on_rows_mousewheel)
+
+    def _on_rows_area_leave(self, event):
+        self.root.unbind_all("<MouseWheel>")
 
     def _get_playlist_items(self, row):
         value = row.playlist_items_var.get().strip()
