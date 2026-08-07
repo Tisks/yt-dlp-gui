@@ -12,7 +12,7 @@ import url_server
 MAX_VISIBLE_ROWS = 3
 PLAYLIST_ITEMS_PLACEHOLDER = "e.g. 1,3,7-10"
 
-_URLRow = namedtuple("_URLRow", "entry archive_var frame url_var playlist_items_var")
+_URLRow = namedtuple("_URLRow", "entry archive_var frame url_var playlist_items_var tick_label")
 
 
 class DownloaderApp:
@@ -28,6 +28,7 @@ class DownloaderApp:
         self.last_pasted_row = None
         self.pending_downloads = 0
         self.active_processes = []
+        self.process_rows = {}
         self.suppress_output = False
 
         self.root = tk.Tk()
@@ -127,6 +128,9 @@ class DownloaderApp:
         row_frame = ttk.Frame(self.rows_frame)
         row_frame.pack(pady=(0, 6), fill="x")
 
+        tick_label = tk.Label(row_frame, text="", foreground="#2ecc40", width=2, font=("", 12, "bold"))
+        tick_label.pack(side="left", padx=(0, 4))
+
         url_var = tk.StringVar(value=initial_url)
         entry = ttk.Entry(row_frame, width=32, textvariable=url_var)
         entry.pack(side="left")
@@ -155,8 +159,10 @@ class DownloaderApp:
         archive_check = ttk.Checkbutton(row_frame, text="Archive mode", variable=archive_var)
         archive_check.pack(side="left", padx=(6, 0))
 
-        row = _URLRow(entry, archive_var, row_frame, url_var, playlist_items_var)
+        row = _URLRow(entry, archive_var, row_frame, url_var, playlist_items_var, tick_label)
         self.url_rows.append(row)
+
+        url_var.trace_add("write", lambda *_args, row=row: self._on_row_url_edited(row))
 
         # The first row is the app's permanent URL field; only rows added on
         # top of it should disappear when the user clears them back out.
@@ -164,6 +170,9 @@ class DownloaderApp:
             url_var.trace_add("write", lambda *_args, row=row: self._on_row_url_changed(row))
 
         return row
+
+    def _on_row_url_edited(self, row):
+        row.tick_label.config(text="")
 
     def _on_row_url_changed(self, row):
         if row.entry.get().strip():
@@ -234,19 +243,26 @@ class DownloaderApp:
             text_widget.config(state="normal")
             text_widget.delete("1.0", "end")
             text_widget.config(state="disabled")
+        for row in self.url_rows:
+            row.tick_label.config(text="")
 
         self.download_button.config(state="disabled")
 
-        # yt-dlp accepts more than one URL per invocation, so URLs that share
+        # yt-dlp accepts more than one URL per invocation, so rows that share
         # the same archive-mode/playlist-items settings are downloaded
         # together in a single command instead of spawning one process per row.
         groups = {}
-        for url, is_archive, playlist_items in entries:
-            groups.setdefault((is_archive, playlist_items), []).append(url)
+        for row in self.url_rows:
+            url = row.entry.get().strip()
+            if not url:
+                continue
+            key = (row.archive_var.get(), self._get_playlist_items(row))
+            groups.setdefault(key, []).append(row)
 
         self.pending_downloads = 0
         self.active_processes = []
-        for (is_archive, playlist_items), urls in groups.items():
+        for (is_archive, playlist_items), rows in groups.items():
+            urls = [row.entry.get().strip() for row in rows]
             if is_archive:
                 command = downloader.build_channel_command(urls, playlist_items)
             else:
@@ -255,6 +271,7 @@ class DownloaderApp:
             try:
                 proc = downloader.start_download(command, self.stdout_queue, self.stderr_queue, self.done_queue)
                 self.active_processes.append(proc)
+                self.process_rows[proc] = rows
                 self.pending_downloads += 1
             except OSError as exc:
                 self.error_text.config(state="normal")
@@ -311,10 +328,15 @@ class DownloaderApp:
 
         while True:
             try:
-                self.done_queue.get_nowait()
+                proc, returncode = self.done_queue.get_nowait()
             except queue.Empty:
                 break
             self.pending_downloads = max(0, self.pending_downloads - 1)
+            rows = self.process_rows.pop(proc, [])
+            if returncode == 0:
+                for row in rows:
+                    if row in self.url_rows:
+                        row.tick_label.config(text="✓")
 
         if self.pending_downloads == 0:
             self.download_button.config(state="normal")

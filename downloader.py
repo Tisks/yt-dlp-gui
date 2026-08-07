@@ -66,7 +66,7 @@ def _monitor_process(proc, reader_threads, done_queue):
     for reader_thread in reader_threads:
         reader_thread.join()
     proc.wait()
-    done_queue.put(proc.returncode)
+    done_queue.put((proc, proc.returncode))
 
 
 def start_download(command, stdout_queue, stderr_queue, done_queue):
