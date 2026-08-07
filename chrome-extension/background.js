@@ -1,4 +1,6 @@
 const URL_ENDPOINT = "http://127.0.0.1:5005/url";
+const DOWNLOAD_ENDPOINT = "http://127.0.0.1:5005/download";
+const CHECK_ARCHIVE_ENDPOINT = "http://127.0.0.1:5005/check-archive";
 
 chrome.commands.onCommand.addListener((command) => {
   if (command === "send-url") {
@@ -12,5 +14,9 @@ chrome.commands.onCommand.addListener((command) => {
         body: JSON.stringify({ url }),
       }).catch(() => {});
     });
+  } else if (command === "trigger-download") {
+    fetch(DOWNLOAD_ENDPOINT, { method: "POST" }).catch(() => {});
+  } else if (command === "check-archive") {
+    fetch(CHECK_ARCHIVE_ENDPOINT, { method: "POST" }).catch(() => {});
   }
 });

@@ -19,8 +19,11 @@ class DownloaderApp:
         self.stderr_queue = queue.Queue()
         self.done_queue = queue.Queue()
         self.url_queue = queue.Queue()
+        self.download_trigger_queue = queue.Queue()
+        self.check_archive_trigger_queue = queue.Queue()
 
         self.url_rows = []
+        self.last_pasted_row = None
         self.pending_downloads = 0
 
         self.root = tk.Tk()
@@ -33,7 +36,7 @@ class DownloaderApp:
 
     def _start_url_server(self):
         try:
-            url_server.start_server(self.url_queue)
+            url_server.start_server(self.url_queue, self.download_trigger_queue, self.check_archive_trigger_queue)
         except OSError as exc:
             self.error_text.config(state="normal")
             self.error_text.insert("end", f"URL receiver not started: {exc}\n")
@@ -214,6 +217,8 @@ class DownloaderApp:
             self.download_button.config(state="normal")
 
         self._poll_incoming_url()
+        self._poll_download_trigger()
+        self._poll_check_archive_trigger()
 
         self.root.after(100, self._poll_output_queue)
 
@@ -232,6 +237,31 @@ class DownloaderApp:
 
         last_row.entry.delete(0, "end")
         last_row.entry.insert(0, url)
+        self.last_pasted_row = last_row
+
+    def _poll_download_trigger(self):
+        triggered = False
+        while True:
+            try:
+                self.download_trigger_queue.get_nowait()
+            except queue.Empty:
+                break
+            triggered = True
+
+        if triggered:
+            self.on_download()
+
+    def _poll_check_archive_trigger(self):
+        triggered = False
+        while True:
+            try:
+                self.check_archive_trigger_queue.get_nowait()
+            except queue.Empty:
+                break
+            triggered = True
+
+        if triggered and self.last_pasted_row in self.url_rows:
+            self.last_pasted_row.channel_var.set(True)
 
     def run(self):
         self.root.mainloop()

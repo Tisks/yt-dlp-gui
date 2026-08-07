@@ -15,6 +15,20 @@
         "mac": "Command+Shift+Y"
       },
       "description": "Send current tab URL to yt-dlp-gui"
+    },
+    "trigger-download": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+D",
+        "mac": "Command+Shift+D"
+      },
+      "description": "Trigger Download in yt-dlp-gui"
+    },
+    "check-archive": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+C",
+        "mac": "Command+Shift+C"
+      },
+      "description": "Check the Channel checkbox for the last pasted URL in yt-dlp-gui"
     }
   }
 }
