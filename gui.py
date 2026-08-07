@@ -8,6 +8,8 @@ import config
 import downloader
 import url_server
 
+MAX_VISIBLE_ROWS = 3
+
 _URLRow = namedtuple("_URLRow", "entry channel_var frame")
 
 
@@ -57,8 +59,18 @@ class DownloaderApp:
         url_label = ttk.Label(container, text="URL")
         url_label.pack(pady=(0, 4), fill="x", anchor="w")
 
-        self.rows_frame = ttk.Frame(container)
-        self.rows_frame.pack(pady=(0, 4), fill="x")
+        rows_outer = ttk.Frame(container)
+        rows_outer.pack(pady=(0, 4), fill="x")
+
+        self.rows_canvas = tk.Canvas(rows_outer, highlightthickness=0)
+        self.rows_scrollbar = ttk.Scrollbar(rows_outer, orient="vertical", command=self.rows_canvas.yview)
+        self.rows_canvas.configure(yscrollcommand=self.rows_scrollbar.set)
+        self.rows_canvas.pack(side="left", fill="both", expand=True)
+
+        self.rows_frame = ttk.Frame(self.rows_canvas)
+        self.rows_canvas.create_window((0, 0), window=self.rows_frame, anchor="nw")
+
+        self.rows_frame.bind("<Configure>", lambda event: self._update_rows_layout())
 
         self._add_url_row()
 
@@ -91,6 +103,22 @@ class DownloaderApp:
         row = _URLRow(entry, channel_var, row_frame)
         self.url_rows.append(row)
         return row
+
+    def _update_rows_layout(self):
+        self.root.update_idletasks()
+        row_count = len(self.url_rows)
+        bbox = self.rows_canvas.bbox("all")
+        content_height = (bbox[3] - bbox[1]) if bbox else 0
+
+        if row_count <= MAX_VISIBLE_ROWS:
+            self.rows_canvas.configure(height=content_height)
+            self.rows_scrollbar.pack_forget()
+        else:
+            row_height = content_height / row_count
+            self.rows_canvas.configure(height=int(row_height * MAX_VISIBLE_ROWS))
+            self.rows_scrollbar.pack(side="right", fill="y")
+
+        self.rows_canvas.configure(scrollregion=bbox)
 
     def _collect_url_entries(self):
         entries = []
