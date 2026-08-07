@@ -231,6 +231,11 @@ class DownloaderApp:
         except queue.Empty:
             return
 
+        existing_urls = {row.entry.get().strip() for row in self.url_rows}
+        if url in existing_urls:
+            notifier.notify("yt-dlp-gui", "URL already on queue")
+            return
+
         # Only the widget's text changes here -- never call lift()/focus_force()
         # or deiconify(), or receiving a URL from Chrome would yank focus away
         # from the browser and pull this window to the front over it.
