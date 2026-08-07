@@ -193,6 +193,13 @@ class DownloaderApp:
         self.notebook.bind("<Motion>", self._on_notebook_motion, add="+")
         self.notebook.bind("<Leave>", lambda _event: self.notebook.config(cursor=""), add="+")
 
+        # The rename box's <FocusOut> (see _start_rename) does not reliably
+        # fire on macOS when a *different* window is clicked, since the popup
+        # is an override-redirect window the OS never treats as truly key.
+        # Watching every click in the app and committing on anything outside
+        # the box itself is the robust fallback.
+        self.root.bind_all("<Button-1>", self._on_global_click_during_rename, add="+")
+
         self.add_tab()
 
     def _clear_tab_messages(self):
@@ -480,6 +487,11 @@ class DownloaderApp:
         self._rename_window = window
         self._rename_entry = entry
         self._rename_tab = tab
+
+    def _on_global_click_during_rename(self, event):
+        if self._rename_entry is None or event.widget is self._rename_entry:
+            return
+        self._commit_rename()
 
     def _commit_rename(self):
         if self._rename_entry is None:
