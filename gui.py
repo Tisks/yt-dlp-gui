@@ -134,6 +134,9 @@ class DownloaderApp:
         except queue.Empty:
             return
 
+        # Only the widget's text changes here -- never call lift()/focus_force()
+        # or deiconify(), or receiving a URL from Chrome would yank focus away
+        # from the browser and pull this window to the front over it.
         self.url_entry.delete(0, "end")
         self.url_entry.insert(0, url)
 
