@@ -191,6 +191,8 @@ class DownloaderApp:
 
         if self.pending_downloads == 0:
             self.download_button.config(state="normal")
+        else:
+            notifier.notify("yt-dlp-gui", "Download started")
 
     def _drain_queue_into(self, line_queue, text_widget):
         while True:
