@@ -6,5 +6,9 @@ def _escape(text):
 
 
 def notify(title, message):
-    script = f'display notification "{_escape(message)}" with title "{_escape(title)}"'
+    # macOS suppresses Notification Center banners while a full-screen app has
+    # focus, which is exactly when this app's alerts matter most. A modal
+    # `display alert` still gets through, and `giving up after` auto-dismisses
+    # it so it never blocks on user interaction.
+    script = f'display alert "{_escape(title)}" message "{_escape(message)}" giving up after 3'
     subprocess.Popen(["osascript", "-e", script])
