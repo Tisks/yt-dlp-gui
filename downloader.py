@@ -1,9 +1,9 @@
 import os
-import signal
 import subprocess
 import threading
 
 import config
+import platform_support
 
 
 def build_env():
@@ -13,19 +13,20 @@ def build_env():
     return env
 
 
-def _shared_flags(cookies_browser):
+def _shared_flags(cookies_browser=None):
     return [
-        "--cookies-from-browser", cookies_browser,
+        "--cookies-from-browser", cookies_browser or config.DEFAULT_COOKIES_BROWSER,
         "--js-runtimes", config.JS_RUNTIME,
         "-f", config.VIDEO_FORMAT,
         "--merge-output-format", config.MERGE_FORMAT,
     ]
 
 
-def build_channel_command(urls, playlist_items="", cookies_browser=config.DEFAULT_COOKIES_BROWSER):
+def build_channel_command(urls, path, playlist_items="", cookies_browser=None):
+    archive_file = os.path.join(path, config.CHANNEL_ARCHIVE_FILENAME)
     command = [
-        "yt-dlp",
-        "-P", config.CHANNEL_DOWNLOAD_PATH,
+        config.YT_DLP_BIN,
+        "-P", path,
         *_shared_flags(cookies_browser),
     ]
     if playlist_items:
@@ -38,7 +39,7 @@ def build_channel_command(urls, playlist_items="", cookies_browser=config.DEFAUL
         "--embed-thumbnail",
         "--write-info-json",
         "--embed-metadata",
-        "--download-archive", config.CHANNEL_ARCHIVE_FILE,
+        "--download-archive", archive_file,
         "--continue",
         "--ignore-errors",
         "--concurrent-fragments", config.CHANNEL_CONCURRENT_FRAGMENTS,
@@ -48,12 +49,32 @@ def build_channel_command(urls, playlist_items="", cookies_browser=config.DEFAUL
     return command
 
 
-def build_single_command(urls, path, playlist_items="", cookies_browser=config.DEFAULT_COOKIES_BROWSER):
-    command = ["yt-dlp", "-P", path, *_shared_flags(cookies_browser)]
+def build_single_command(urls, path, playlist_items="", cookies_browser=None):
+    command = [config.YT_DLP_BIN, "-P", path, *_shared_flags(cookies_browser)]
     if playlist_items:
         command += ["--playlist-items", playlist_items]
     command += list(urls)
     return command
+
+
+def build_validate_command(url, cookies_browser=None):
+    return [config.YT_DLP_BIN, "--simulate", "--no-warnings", *_shared_flags(cookies_browser), url]
+
+
+def validate_url(url, cookies_browser=None):
+    command = build_validate_command(url, cookies_browser)
+    try:
+        result = subprocess.run(
+            command,
+            env=build_env(),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=config.URL_VALIDATE_TIMEOUT,
+            **platform_support.subprocess_flags(),
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    return result.returncode == 0
 
 
 def stream_output(pipe, line_queue):
@@ -77,7 +98,7 @@ def start_download(command, stdout_queue, stderr_queue, done_queue):
         stderr=subprocess.PIPE,
         text=True,
         bufsize=1,
-        preexec_fn=os.setsid,
+        **platform_support.subprocess_flags(),
     )
 
     stdout_thread = threading.Thread(target=stream_output, args=(proc.stdout, stdout_queue), daemon=True)
@@ -92,7 +113,4 @@ def start_download(command, stdout_queue, stderr_queue, done_queue):
 
 
 def cancel_download(proc):
-    try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-    except ProcessLookupError:
-        pass
+    platform_support.terminate_process_tree(proc)

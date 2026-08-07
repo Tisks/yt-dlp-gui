@@ -1,12 +1,7 @@
+.venv-build/
+build/
+dist/
+vendor/
 __pycache__/
 *.pyc
 .DS_Store
-
-# Apple's system Python links tkinter against the deprecated, crash-prone
-# Tcl/Tk 8.5 (TkpInit aborts with SIGABRT when frozen). The build venv must
-# be created from a Homebrew Python with `python-tk` installed instead, so
-# it's local to each machine rather than checked in.
-.venv-build/
-
-build/
-dist/

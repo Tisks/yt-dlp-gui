@@ -4,10 +4,35 @@
   "version": "1.0",
   "description": "Sends the current tab's URL to the local yt-dlp-gui app via a keyboard shortcut.",
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "scripts": [
+      "generated_config.js",
+      "background.js"
+    ]
   },
-  "permissions": ["activeTab"],
-  "host_permissions": ["http://127.0.0.1:5005/*"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "yt-dlp-gui@local"
+    }
+  },
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:5005/*",
+    "http://127.0.0.1:5006/*",
+    "http://127.0.0.1:5007/*",
+    "http://127.0.0.1:5008/*",
+    "http://127.0.0.1:5009/*",
+    "http://127.0.0.1:5010/*",
+    "http://127.0.0.1:5011/*",
+    "http://127.0.0.1:5012/*",
+    "http://127.0.0.1:5013/*",
+    "http://127.0.0.1:5014/*",
+    "http://127.0.0.1:5015/*"
+  ],
   "commands": {
     "send-url": {
       "suggested_key": {
@@ -28,7 +53,7 @@
         "default": "Ctrl+Shift+C",
         "mac": "Command+Shift+C"
       },
-      "description": "Check the Channel checkbox for the last pasted URL in yt-dlp-gui"
+      "description": "Check the Archive mode checkbox for the last pasted URL in yt-dlp-gui"
     }
   }
 }

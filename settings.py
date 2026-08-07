@@ -2,18 +2,13 @@
 
 Settings are a convenience: any failure here falls back to defaults rather than
 surfacing an error, because a bad settings file must never stop the app starting.
-
-Not wired into the GUI yet -- `path`, `cookies_browser` and `auto_close_tabs`
-only become real, independently-configurable preferences once per-row cookie
-selection and multi-batch tabs exist. This module exists standalone first so
-that wiring is a small change rather than inventing the persistence format
-under time pressure later.
 """
 
 import json
 import os
 import tempfile
 
+import config
 import platform_support
 
 SETTINGS_VERSION = 1
@@ -22,8 +17,8 @@ SETTINGS_VERSION = 1
 def defaults():
     return {
         "path": "",
-        "cookies_browser": "chrome",
-        "auto_close_tabs": "ask",
+        "cookies_browser": config.DEFAULT_COOKIES_BROWSER,
+        "auto_close_tabs": config.DEFAULT_AUTO_CLOSE,
     }
 
 
@@ -45,18 +40,19 @@ def load():
     if isinstance(path, str):
         values["path"] = path
 
+    # A browser that has since been uninstalled must not reach yt-dlp.
     browser = stored.get("cookies_browser")
-    if isinstance(browser, str):
+    if isinstance(browser, str) and browser in config.COOKIE_BROWSER_CHOICES:
         values["cookies_browser"] = browser
 
     auto_close = stored.get("auto_close_tabs")
-    if isinstance(auto_close, str):
+    if isinstance(auto_close, str) and auto_close in config.AUTO_CLOSE_CHOICES:
         values["auto_close_tabs"] = auto_close
 
     return values
 
 
-def save(path, cookies_browser, auto_close_tabs="ask"):
+def save(path, cookies_browser, auto_close_tabs=config.DEFAULT_AUTO_CLOSE):
     target = platform_support.settings_path()
     payload = {
         "version": SETTINGS_VERSION,
