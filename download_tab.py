@@ -57,6 +57,7 @@ class DownloadTab:
         self.suppress_output = False
         self.has_run = False
         self.had_failure = False
+        self.custom_name = None
 
         self.frame = ttk.Frame(notebook, padding=(0, 8, 0, 0))
         self._build_widgets()

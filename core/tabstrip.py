@@ -67,13 +67,14 @@ def offscreen_text(start, end, total):
     return "  " + ", ".join(parts) if parts else ""
 
 
-def tab_label(number, glyph, closable, close_glyph):
-    """A tab's caption: its number, any status glyph, and the close affordance.
+def tab_label(number, glyph, closable, close_glyph, name=None):
+    """A tab's caption: its name (or number), any status glyph, and the close affordance.
 
     Just the number rather than "Batch N" -- at roughly half the width it is the
-    difference between five tabs fitting on screen and eleven.
+    difference between five tabs fitting on screen and eleven. `name` overrides
+    the number once a tab has been renamed.
     """
-    label = str(number)
+    label = name if name else str(number)
     if glyph:
         label += f" {glyph}"
     if closable:

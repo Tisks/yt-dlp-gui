@@ -59,6 +59,11 @@ class DownloaderApp:
         self._visible_span = None
         self._pager_shown = None
 
+        # The floating window used to rename a tab in place; see _start_rename.
+        self._rename_window = None
+        self._rename_entry = None
+        self._rename_tab = None
+
         self.settings = settings.load()
 
         self.root = tk.Tk()
@@ -182,6 +187,7 @@ class DownloaderApp:
 
         self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
         self.notebook.bind("<Button-1>", self._on_notebook_click, add="+")
+        self.notebook.bind("<Double-Button-1>", self._on_notebook_double_click, add="+")
 
         self.add_tab()
 
@@ -221,6 +227,9 @@ class DownloaderApp:
             notifier.notify(config.APP_NAME, TAB_BUSY_MESSAGE)
             return False
 
+        if tab is self._rename_tab:
+            self._cancel_rename()
+
         index = self.tabs.index(tab)
         self.tabs.remove(tab)
         self.notebook.forget(tab.frame)
@@ -245,7 +254,7 @@ class DownloaderApp:
             # tab.number, not the position, so closing a tab renames nothing.
             label = tabstrip.tab_label(
                 tab.number, STATUS_GLYPH[tab.status()], closable=index > 0,
-                close_glyph=CLOSE_GLYPH,
+                close_glyph=CLOSE_GLYPH, name=tab.custom_name,
             )
             self.notebook.tab(tab.frame, text=label)
 
@@ -304,6 +313,7 @@ class DownloaderApp:
         self.pager_next.state(["!disabled"] if end < total else ["disabled"])
 
     def _page_by(self, delta):
+        self._commit_rename()  # the overlay's position would go stale on a new page
         total = len(self.tabs)
         if total <= TABS_PER_PAGE:
             return
@@ -350,7 +360,12 @@ class DownloaderApp:
             return None
         if index <= 0 or index >= len(self.tabs):
             return None  # first tab has no ✕, and the '+' tab is not closable
+        if not self._in_close_zone(event, index):
+            return None
+        return self.tabs[index]
 
+    def _in_close_zone(self, event, index):
+        """Whether `event` falls within CLOSE_ZONE_PX of the tab's right edge."""
         right_edge = event.x
         while right_edge - event.x < 400:
             try:
@@ -359,10 +374,110 @@ class DownloaderApp:
             except tk.TclError:
                 break
             right_edge += 1
+        return right_edge - event.x <= CLOSE_ZONE_PX
 
-        if right_edge - event.x > CLOSE_ZONE_PX:
+    def _tab_rename_hit(self, event):
+        """The tab whose label body was double-clicked, or None."""
+        try:
+            index = self.notebook.index(f"@{event.x},{event.y}")
+        except tk.TclError:
             return None
+        if index < 0 or index >= len(self.tabs):
+            return None  # off the strip, or the '+' tab
+        if index > 0 and self._in_close_zone(event, index):
+            return None  # double-clicking the ✕ should not open a rename box
         return self.tabs[index]
+
+    def _on_notebook_double_click(self, event):
+        tab = self._tab_rename_hit(event)
+        if tab is None:
+            return None
+        self._start_rename(tab, event)
+        return "break"
+
+    def _tab_screen_bbox(self, event, index):
+        """The tab's on-screen bounding box, found by hand.
+
+        ttk.Notebook.bbox() reports all zeros under this Aqua build, so like
+        _in_close_zone above, the edges are found by hit-testing neighbouring
+        pixels rather than trusted from the widget.
+        """
+        def horizontal_edge(step):
+            pos = event.x
+            for _ in range(400):
+                probe = pos + step
+                try:
+                    if self.notebook.index(f"@{probe},{event.y}") != index:
+                        return pos
+                except tk.TclError:
+                    return pos
+                pos = probe
+            return pos
+
+        def vertical_edge(step):
+            pos = event.y
+            for _ in range(100):
+                probe = pos + step
+                try:
+                    self.notebook.index(f"@{event.x},{probe}")
+                except tk.TclError:
+                    return pos
+                pos = probe
+            return pos
+
+        left, right = horizontal_edge(-1), horizontal_edge(1)
+        top, bottom = vertical_edge(-1), vertical_edge(1)
+        screen_x = self.notebook.winfo_rootx() + left
+        screen_y = self.notebook.winfo_rooty() + top
+        return screen_x, screen_y, right - left + 1, bottom - top + 1
+
+    def _start_rename(self, tab, event):
+        self._commit_rename()  # save whatever was already being edited
+        index = self.tabs.index(tab)
+        screen_x, screen_y, width, height = self._tab_screen_bbox(event, index)
+
+        # A child widget place()d onto the notebook itself would sit behind the
+        # native Aqua tab strip -- the same reason the ✕ above is baked into the
+        # tab text rather than a real button. A borderless Toplevel is a real
+        # window, so macOS stacks it above the notebook like any other window.
+        window = tk.Toplevel(self.root)
+        window.overrideredirect(True)
+        window.transient(self.root)
+        window.geometry(f"{width}x{height}+{screen_x}+{screen_y}")
+
+        entry = tk.Entry(window)
+        entry.pack(fill="both", expand=True)
+        entry.insert(0, tab.custom_name or str(tab.number))
+        entry.select_range(0, "end")
+        window.lift()
+        entry.focus_force()
+        entry.bind("<Return>", lambda _event: self._commit_rename())
+        entry.bind("<Escape>", lambda _event: self._cancel_rename())
+        entry.bind("<FocusOut>", lambda _event: self._commit_rename())
+
+        self._rename_window = window
+        self._rename_entry = entry
+        self._rename_tab = tab
+
+    def _commit_rename(self):
+        if self._rename_entry is None:
+            return
+        value = self._rename_entry.get().strip()
+        tab = self._rename_tab
+        self._destroy_rename_entry()
+        if tab in self.tabs:
+            tab.custom_name = value or None
+            self._update_tab_labels()
+
+    def _cancel_rename(self):
+        self._destroy_rename_entry()
+
+    def _destroy_rename_entry(self):
+        if self._rename_entry is not None:
+            self._rename_window.destroy()
+            self._rename_window = None
+            self._rename_entry = None
+            self._rename_tab = None
 
     def _auto_close_finished_tabs(self):
         if self.auto_close_var.get() != config.AUTO_CLOSE_ON:
