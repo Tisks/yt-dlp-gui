@@ -325,13 +325,17 @@ class DownloaderApp:
         # Only the widget's text changes here -- never call lift()/focus_force()
         # or deiconify(), or receiving a URL from Chrome would yank focus away
         # from the browser and pull this window to the front over it.
-        last_row = self.url_rows[-1]
-        if last_row.entry.get().strip():
-            last_row = self._add_url_row()
+        #
+        # Fill the first empty row top-to-bottom rather than always the last
+        # one: clearing an earlier row while later ones are still filled must
+        # reclaim that gap instead of leaving pastes to keep piling up at the
+        # bottom in reverse order.
+        empty_row = next((row for row in self.url_rows if not row.entry.get().strip()), None)
+        target_row = empty_row if empty_row is not None else self._add_url_row()
 
-        last_row.entry.delete(0, "end")
-        last_row.entry.insert(0, url)
-        self.last_pasted_row = last_row
+        target_row.entry.delete(0, "end")
+        target_row.entry.insert(0, url)
+        self.last_pasted_row = target_row
 
         # Reaching this point means url_server actually queued the URL, so the
         # notification confirms a real paste rather than firing on every
