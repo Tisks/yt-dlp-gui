@@ -5,6 +5,7 @@ from tkinter import scrolledtext
 
 import config
 import downloader
+import url_server
 
 
 class DownloaderApp:
@@ -12,13 +13,23 @@ class DownloaderApp:
         self.stdout_queue = queue.Queue()
         self.stderr_queue = queue.Queue()
         self.done_queue = queue.Queue()
+        self.url_queue = queue.Queue()
 
         self.root = tk.Tk()
         self.root.title(config.WINDOW_TITLE)
         self.root.geometry(config.WINDOW_GEOMETRY)
 
         self._build_widgets()
+        self._start_url_server()
         self._poll_output_queue()
+
+    def _start_url_server(self):
+        try:
+            url_server.start_server(self.url_queue)
+        except OSError as exc:
+            self.error_text.config(state="normal")
+            self.error_text.insert("end", f"URL receiver not started: {exc}\n")
+            self.error_text.config(state="disabled")
 
     def _build_widgets(self):
         container = ttk.Frame(self.root, padding=20)
@@ -113,7 +124,18 @@ class DownloaderApp:
                 break
             self.download_button.config(state="normal")
 
+        self._poll_incoming_url()
+
         self.root.after(100, self._poll_output_queue)
+
+    def _poll_incoming_url(self):
+        try:
+            url = self.url_queue.get_nowait()
+        except queue.Empty:
+            return
+
+        self.url_entry.delete(0, "end")
+        self.url_entry.insert(0, url)
 
     def run(self):
         self.root.mainloop()
