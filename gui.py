@@ -26,6 +26,8 @@ class DownloaderApp:
         self.url_rows = []
         self.last_pasted_row = None
         self.pending_downloads = 0
+        self.active_processes = []
+        self.suppress_output = False
 
         self.root = tk.Tk()
         self.root.title(config.WINDOW_TITLE)
@@ -89,8 +91,14 @@ class DownloaderApp:
         self.message_label = ttk.Label(container, text="", foreground="red")
         self.message_label.pack(pady=(0, 8))
 
-        self.download_button = ttk.Button(container, text="Download", command=self.on_download)
-        self.download_button.pack()
+        button_row = ttk.Frame(container)
+        button_row.pack()
+
+        self.cancel_button = ttk.Button(button_row, text="Cancel", command=self.on_cancel, state="disabled")
+        self.cancel_button.pack(side="left", padx=(0, 6))
+
+        self.download_button = ttk.Button(button_row, text="Download", command=self.on_download)
+        self.download_button.pack(side="left")
 
     def _add_url_row(self, initial_url=""):
         is_first_row = not self.url_rows
@@ -160,6 +168,7 @@ class DownloaderApp:
             return
 
         self.message_label.config(text="")
+        self.suppress_output = False
         for text_widget in (self.output_text, self.error_text):
             text_widget.config(state="normal")
             text_widget.delete("1.0", "end")
@@ -175,6 +184,7 @@ class DownloaderApp:
             groups.setdefault(is_channel, []).append(url)
 
         self.pending_downloads = 0
+        self.active_processes = []
         for is_channel, urls in groups.items():
             if is_channel:
                 command = downloader.build_channel_command(urls)
@@ -182,7 +192,8 @@ class DownloaderApp:
                 command = downloader.build_single_command(urls, self.path_var.get())
 
             try:
-                downloader.start_download(command, self.stdout_queue, self.stderr_queue, self.done_queue)
+                proc = downloader.start_download(command, self.stdout_queue, self.stderr_queue, self.done_queue)
+                self.active_processes.append(proc)
                 self.pending_downloads += 1
             except OSError as exc:
                 self.error_text.config(state="normal")
@@ -192,7 +203,33 @@ class DownloaderApp:
         if self.pending_downloads == 0:
             self.download_button.config(state="normal")
         else:
+            self.cancel_button.config(state="normal")
             notifier.notify("yt-dlp-gui", "Download started")
+
+    def on_cancel(self):
+        if not self.active_processes:
+            return
+
+        for proc in self.active_processes:
+            downloader.cancel_download(proc)
+        self.cancel_button.config(state="disabled")
+        self.suppress_output = True
+
+        for line_queue in (self.stdout_queue, self.stderr_queue):
+            while True:
+                try:
+                    line_queue.get_nowait()
+                except queue.Empty:
+                    break
+
+        self.output_text.config(state="normal")
+        self.output_text.delete("1.0", "end")
+        self.output_text.config(state="disabled")
+
+        self.error_text.config(state="normal")
+        self.error_text.delete("1.0", "end")
+        self.error_text.insert("end", "Download cancelled\n")
+        self.error_text.config(state="disabled")
 
     def _drain_queue_into(self, line_queue, text_widget):
         while True:
@@ -200,6 +237,8 @@ class DownloaderApp:
                 line = line_queue.get_nowait()
             except queue.Empty:
                 break
+            if self.suppress_output:
+                continue
             text_widget.config(state="normal")
             text_widget.insert("end", line)
             text_widget.see("end")
@@ -218,6 +257,8 @@ class DownloaderApp:
 
         if self.pending_downloads == 0:
             self.download_button.config(state="normal")
+            self.cancel_button.config(state="disabled")
+            self.active_processes = []
 
         self._poll_incoming_url()
         self._poll_download_trigger()

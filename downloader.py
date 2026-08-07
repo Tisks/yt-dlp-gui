@@ -1,4 +1,5 @@
 import os
+import signal
 import subprocess
 import threading
 
@@ -82,3 +83,10 @@ def start_download(command, stdout_queue, stderr_queue, done_queue):
     ).start()
 
     return proc
+
+
+def cancel_download(proc):
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except ProcessLookupError:
+        pass
