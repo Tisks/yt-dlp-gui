@@ -21,8 +21,8 @@ def _shared_flags():
     ]
 
 
-def build_channel_command(url):
-    return [
+def build_channel_command(urls):
+    command = [
         "yt-dlp",
         "-P", config.CHANNEL_DOWNLOAD_PATH,
         *_shared_flags(),
@@ -38,12 +38,15 @@ def build_channel_command(url):
         "--ignore-errors",
         "--concurrent-fragments", config.CHANNEL_CONCURRENT_FRAGMENTS,
         "-o", config.CHANNEL_OUTPUT_TEMPLATE,
-        url,
     ]
+    command += list(urls)
+    return command
 
 
-def build_single_command(url, path):
-    return ["yt-dlp", "-P", path, *_shared_flags(), url]
+def build_single_command(urls, path):
+    command = ["yt-dlp", "-P", path, *_shared_flags()]
+    command += list(urls)
+    return command
 
 
 def stream_output(pipe, line_queue):

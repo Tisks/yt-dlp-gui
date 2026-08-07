@@ -2,10 +2,13 @@ import queue
 import tkinter as tk
 from tkinter import ttk
 from tkinter import scrolledtext
+from collections import namedtuple
 
 import config
 import downloader
 import url_server
+
+_URLRow = namedtuple("_URLRow", "entry channel_var frame")
 
 
 class DownloaderApp:
@@ -14,6 +17,9 @@ class DownloaderApp:
         self.stderr_queue = queue.Queue()
         self.done_queue = queue.Queue()
         self.url_queue = queue.Queue()
+
+        self.url_rows = []
+        self.pending_downloads = 0
 
         self.root = tk.Tk()
         self.root.title(config.WINDOW_TITLE)
@@ -51,15 +57,10 @@ class DownloaderApp:
         url_label = ttk.Label(container, text="URL")
         url_label.pack(pady=(0, 4), fill="x", anchor="w")
 
-        url_row = ttk.Frame(container)
-        url_row.pack(pady=(0, 4))
+        self.rows_frame = ttk.Frame(container)
+        self.rows_frame.pack(pady=(0, 4), fill="x")
 
-        self.url_entry = ttk.Entry(url_row, width=32)
-        self.url_entry.pack(side="left")
-
-        self.channel_var = tk.BooleanVar(value=False)
-        channel_check = ttk.Checkbutton(url_row, text="Channel", variable=self.channel_var)
-        channel_check.pack(side="left", padx=(6, 0))
+        self._add_url_row()
 
         self.output_text = scrolledtext.ScrolledText(container, width=42, height=10, state="disabled", wrap="word")
         self.output_text.pack(pady=(0, 4))
@@ -75,9 +76,34 @@ class DownloaderApp:
         self.download_button = ttk.Button(container, text="Download", command=self.on_download)
         self.download_button.pack()
 
+    def _add_url_row(self, initial_url=""):
+        row_frame = ttk.Frame(self.rows_frame)
+        row_frame.pack(pady=(0, 6), fill="x")
+
+        entry = ttk.Entry(row_frame, width=32)
+        entry.insert(0, initial_url)
+        entry.pack(side="left")
+
+        channel_var = tk.BooleanVar(value=False)
+        channel_check = ttk.Checkbutton(row_frame, text="Channel", variable=channel_var)
+        channel_check.pack(side="left", padx=(6, 0))
+
+        row = _URLRow(entry, channel_var, row_frame)
+        self.url_rows.append(row)
+        return row
+
+    def _collect_url_entries(self):
+        entries = []
+        for row in self.url_rows:
+            url = row.entry.get().strip()
+            if not url:
+                continue
+            entries.append((url, row.channel_var.get()))
+        return entries
+
     def on_download(self):
-        url = self.url_entry.get().strip()
-        if not url:
+        entries = self._collect_url_entries()
+        if not entries:
             self.message_label.config(text="Please input something")
             return
 
@@ -87,19 +113,31 @@ class DownloaderApp:
             text_widget.delete("1.0", "end")
             text_widget.config(state="disabled")
 
-        if self.channel_var.get():
-            command = downloader.build_channel_command(url)
-        else:
-            command = downloader.build_single_command(url, self.path_var.get())
-
         self.download_button.config(state="disabled")
 
-        try:
-            downloader.start_download(command, self.stdout_queue, self.stderr_queue, self.done_queue)
-        except OSError as exc:
-            self.error_text.config(state="normal")
-            self.error_text.insert("end", f"Failed to start yt-dlp: {exc}\n")
-            self.error_text.config(state="disabled")
+        # yt-dlp accepts more than one URL per invocation, so URLs that share
+        # a checkbox state are downloaded together in a single command instead
+        # of spawning one process per row.
+        groups = {}
+        for url, is_channel in entries:
+            groups.setdefault(is_channel, []).append(url)
+
+        self.pending_downloads = 0
+        for is_channel, urls in groups.items():
+            if is_channel:
+                command = downloader.build_channel_command(urls)
+            else:
+                command = downloader.build_single_command(urls, self.path_var.get())
+
+            try:
+                downloader.start_download(command, self.stdout_queue, self.stderr_queue, self.done_queue)
+                self.pending_downloads += 1
+            except OSError as exc:
+                self.error_text.config(state="normal")
+                self.error_text.insert("end", f"Failed to start yt-dlp: {exc}\n")
+                self.error_text.config(state="disabled")
+
+        if self.pending_downloads == 0:
             self.download_button.config(state="normal")
 
     def _drain_queue_into(self, line_queue, text_widget):
@@ -122,6 +160,9 @@ class DownloaderApp:
                 self.done_queue.get_nowait()
             except queue.Empty:
                 break
+            self.pending_downloads = max(0, self.pending_downloads - 1)
+
+        if self.pending_downloads == 0:
             self.download_button.config(state="normal")
 
         self._poll_incoming_url()
@@ -137,8 +178,12 @@ class DownloaderApp:
         # Only the widget's text changes here -- never call lift()/focus_force()
         # or deiconify(), or receiving a URL from Chrome would yank focus away
         # from the browser and pull this window to the front over it.
-        self.url_entry.delete(0, "end")
-        self.url_entry.insert(0, url)
+        last_row = self.url_rows[-1]
+        if last_row.entry.get().strip():
+            last_row = self._add_url_row()
+
+        last_row.entry.delete(0, "end")
+        last_row.entry.insert(0, url)
 
     def run(self):
         self.root.mainloop()
