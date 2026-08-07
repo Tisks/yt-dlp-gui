@@ -16,9 +16,11 @@ IS_MACOS = sys.platform == "darwin"
 if IS_MACOS:
     CURSOR_CLICKABLE = "pointinghand"
     CURSOR_DISABLED = "notallowed"
+    CURSOR_TEXT = "ibeam"
 else:
     CURSOR_CLICKABLE = "hand2"
     CURSOR_DISABLED = "no"
+    CURSOR_TEXT = "xterm"
 
 CURSOR_DEFAULT = ""
 

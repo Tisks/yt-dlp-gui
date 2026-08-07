@@ -119,7 +119,9 @@ class DownloadTab:
         # became the widest thing in the tab, so expanding it visibly widened
         # the whole notebook. Left with margin because Windows renders entries
         # and text boxes in different fonts.
-        self.local_path_entry = ttk.Entry(container, textvariable=self.local_path_var, width=46)
+        self.local_path_entry = ttk.Entry(
+            container, textvariable=self.local_path_var, width=46, cursor=platform_support.CURSOR_TEXT
+        )
         self.local_path_expanded = False  # starts collapsed; entry is not packed yet
 
         # Packed unconditionally so an error stays visible after collapsing --
@@ -222,15 +224,15 @@ class DownloadTab:
 
     def _set_row_inputs_enabled(self, enabled):
         state = "normal" if enabled else "disabled"
-        cursor = platform_support.CURSOR_DEFAULT if enabled else platform_support.CURSOR_DISABLED
-        remove_cursor = platform_support.CURSOR_CLICKABLE if enabled else platform_support.CURSOR_DISABLED
-        self.local_path_entry.config(state=state, cursor=cursor)
+        text_cursor = platform_support.CURSOR_TEXT if enabled else platform_support.CURSOR_DISABLED
+        clickable_cursor = platform_support.CURSOR_CLICKABLE if enabled else platform_support.CURSOR_DISABLED
+        self.local_path_entry.config(state=state, cursor=text_cursor)
         for row in self.url_rows:
-            row.entry.config(state=state, cursor=cursor)
-            row.playlist_items_entry.config(state=state, cursor=cursor)
-            row.archive_check.config(state=state, cursor=cursor)
+            row.entry.config(state=state, cursor=text_cursor)
+            row.playlist_items_entry.config(state=state, cursor=text_cursor)
+            row.archive_check.config(state=state, cursor=clickable_cursor)
             if row.remove_button is not None:
-                row.remove_button.config(cursor=remove_cursor)
+                row.remove_button.config(cursor=clickable_cursor)
 
     def _append_text(self, text_widget, message):
         text_widget.config(state="normal")
@@ -271,7 +273,7 @@ class DownloadTab:
         tick_label.pack(side="left", padx=(0, 4))
 
         url_var = tk.StringVar(value=initial_url)
-        entry = ttk.Entry(row_frame, width=24, textvariable=url_var)
+        entry = ttk.Entry(row_frame, width=24, textvariable=url_var, cursor=platform_support.CURSOR_TEXT)
         entry.pack(side="left")
 
         entry_menu = tk.Menu(entry, tearoff=0)
@@ -289,7 +291,9 @@ class DownloadTab:
         entry.bind("<Button-3>", show_entry_menu)
 
         playlist_items_var = tk.StringVar(value=PLAYLIST_ITEMS_PLACEHOLDER)
-        playlist_items_entry = ttk.Entry(row_frame, width=9, textvariable=playlist_items_var)
+        playlist_items_entry = ttk.Entry(
+            row_frame, width=9, textvariable=playlist_items_var, cursor=platform_support.CURSOR_TEXT
+        )
         playlist_items_entry.pack(side="left", padx=(6, 0))
         default_fg = playlist_items_entry.cget("foreground")
         playlist_items_entry.config(foreground=PLACEHOLDER_FG)
@@ -308,7 +312,7 @@ class DownloadTab:
         playlist_items_entry.bind("<FocusOut>", on_playlist_items_focus_out)
 
         archive_var = tk.BooleanVar(value=False)
-        archive_check = ttk.Checkbutton(row_frame, variable=archive_var)
+        archive_check = ttk.Checkbutton(row_frame, variable=archive_var, cursor=platform_support.CURSOR_CLICKABLE)
         archive_check.pack(side="left", padx=(6, 0))
 
         remove_button = None

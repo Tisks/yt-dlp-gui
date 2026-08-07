@@ -74,7 +74,8 @@ with tempfile.TemporaryDirectory() as d:
     assert app.tabs[0].pending_downloads == 0
     assert state_of(row0) == ("normal", "normal", "normal"), state_of(row0)
     assert state_of(row1) == ("normal", "normal", "normal"), state_of(row1)
-    assert str(row0.entry.cget("cursor")) == ""
-    print("TEST 3 PASSED: rows re-enabled with default cursor once downloads finish")
+    assert str(row0.entry.cget("cursor")) == _ps.CURSOR_TEXT
+    assert str(row0.playlist_items_entry.cget("cursor")) == _ps.CURSOR_TEXT
+    print("TEST 3 PASSED: rows re-enabled with text cursor once downloads finish")
 
 print("ALL TESTS PASSED")

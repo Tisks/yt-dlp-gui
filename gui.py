@@ -142,6 +142,7 @@ class DownloaderApp:
             values=config.COOKIE_BROWSER_CHOICES,
             state="readonly",
             width=9,
+            cursor=platform_support.CURSOR_CLICKABLE,
         ).pack(side="left", padx=(6, 0))
 
         ttk.Label(options_row, text="Auto-close finished tabs").pack(side="left", padx=(16, 0))
@@ -152,6 +153,7 @@ class DownloaderApp:
             values=config.AUTO_CLOSE_CHOICES,
             state="readonly",
             width=5,
+            cursor=platform_support.CURSOR_CLICKABLE,
         ).pack(side="left", padx=(6, 0))
 
         # Tk offers no way to put widgets inside a notebook's tab strip, so the
@@ -188,6 +190,8 @@ class DownloaderApp:
         self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
         self.notebook.bind("<Button-1>", self._on_notebook_click, add="+")
         self.notebook.bind("<Double-Button-1>", self._on_notebook_double_click, add="+")
+        self.notebook.bind("<Motion>", self._on_notebook_motion, add="+")
+        self.notebook.bind("<Leave>", lambda _event: self.notebook.config(cursor=""), add="+")
 
         self.add_tab()
 
@@ -351,6 +355,10 @@ class DownloaderApp:
         # Destroying widgets inside the click handler upsets ttk, so defer.
         self.root.after_idle(lambda: self.close_tab(tab))
         return "break"
+
+    def _on_notebook_motion(self, event):
+        cursor = platform_support.CURSOR_CLICKABLE if self._tab_close_hit(event) else ""
+        self.notebook.config(cursor=cursor)
 
     def _tab_close_hit(self, event):
         """The tab whose ✕ was clicked, or None."""
