@@ -64,6 +64,7 @@ assert values == {
     "path": "",
     "cookies_browser": config.DEFAULT_COOKIES_BROWSER,
     "auto_close_tabs": config.DEFAULT_AUTO_CLOSE,
+    "cookies_file": "",
 }, values
 print("TEST 1 PASSED: missing file falls back to defaults")
 
@@ -80,6 +81,7 @@ with tempfile.TemporaryDirectory() as real_dir:
         "path": real_dir,
         "cookies_browser": ROUND_TRIP_BROWSER,
         "auto_close_tabs": config.AUTO_CLOSE_ON,
+        "cookies_file": "",
     }, values
     on_disk = json.load(open(SETTINGS_FILE, encoding="utf-8"))
     assert on_disk["version"] == 1, on_disk
@@ -175,5 +177,28 @@ real_path = REAL_SETTINGS_PATH()
 assert "Application Support" in real_path or "AppData" in real_path, real_path
 assert ".app/" not in real_path and "/Applications/" not in real_path, real_path
 print(f"TEST 11 PASSED: settings path is user-scoped -> {real_path}")
+
+# --- 12. A cookies file round-trips through save/load -----------------------
+with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as cookies_handle:
+    cookies_handle.write(b"# Netscape HTTP Cookie File\n")
+    cookies_path = cookies_handle.name
+
+try:
+    with tempfile.TemporaryDirectory() as real_dir:
+        settings.save(real_dir, config.DEFAULT_COOKIES_BROWSER, cookies_file=cookies_path)
+        values = settings.load()
+        assert values["cookies_file"] == cookies_path, values
+        print("TEST 12 PASSED: cookies_file round-trips through save/load")
+
+    # --- 13. A cookies file that no longer exists is dropped, not kept -----
+    # Unlike `path`, this isn't shown with a warning -- a stale --cookies
+    # path would just fail every download silently until the user notices.
+    os.remove(cookies_path)
+    values = settings.load()
+    assert values["cookies_file"] == "", values
+    print("TEST 13 PASSED: a deleted cookies file is dropped on load, not kept")
+finally:
+    if os.path.exists(cookies_path):
+        os.remove(cookies_path)
 
 print("ALL TESTS PASSED")

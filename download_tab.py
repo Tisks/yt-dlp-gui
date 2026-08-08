@@ -497,13 +497,18 @@ class DownloadTab:
 
         self.pending_downloads = 0
         self.active_processes = []
+        cookies_file = self.app.cookies_file_var.get()
         for (is_archive, playlist_items, cookies_browser), rows, group_urls in (
             batch_state.group_downloads(entries)
         ):
             if is_archive:
-                command = downloader.build_channel_command(group_urls, path, playlist_items, cookies_browser)
+                command = downloader.build_channel_command(
+                    group_urls, path, playlist_items, cookies_browser, cookies_file
+                )
             else:
-                command = downloader.build_single_command(group_urls, path, playlist_items, cookies_browser)
+                command = downloader.build_single_command(
+                    group_urls, path, playlist_items, cookies_browser, cookies_file
+                )
 
             try:
                 proc = downloader.start_download(command, self.stdout_queue, self.stderr_queue, self.done_queue)

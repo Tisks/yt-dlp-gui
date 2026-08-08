@@ -3,6 +3,7 @@ import queue
 import tkinter as tk
 from tkinter import ttk
 from tkinter import simpledialog
+from tkinter import filedialog
 
 import config
 import download_tab
@@ -104,6 +105,7 @@ class DownloaderApp:
             "path": path,
             "cookies_browser": self.cookies_browser_var.get(),
             "auto_close_tabs": self.auto_close_var.get(),
+            "cookies_file": self.cookies_file_var.get(),
         }
         settings.save(**self.settings)
 
@@ -136,14 +138,15 @@ class DownloaderApp:
 
         ttk.Label(options_row, text="Browser shortcut support").pack(side="left")
         self.cookies_browser_var = tk.StringVar(value=self.settings["cookies_browser"])
-        ttk.Combobox(
+        self.cookies_browser_combo = ttk.Combobox(
             options_row,
             textvariable=self.cookies_browser_var,
             values=config.COOKIE_BROWSER_CHOICES,
             state="readonly",
             width=9,
             cursor=platform_support.CURSOR_CLICKABLE,
-        ).pack(side="left", padx=(6, 0))
+        )
+        self.cookies_browser_combo.pack(side="left", padx=(6, 0))
 
         ttk.Label(options_row, text="Auto-close finished tabs").pack(side="left", padx=(16, 0))
         self.auto_close_var = tk.StringVar(value=self.settings["auto_close_tabs"])
@@ -155,6 +158,30 @@ class DownloaderApp:
             width=5,
             cursor=platform_support.CURSOR_CLICKABLE,
         ).pack(side="left", padx=(6, 0))
+
+        cookies_file_row = ttk.Frame(container)
+        cookies_file_row.pack(pady=(0, 8), fill="x")
+
+        ttk.Label(cookies_file_row, text="Cookies file").pack(side="left")
+        self.cookies_file_var = tk.StringVar(value=self.settings["cookies_file"])
+        self.cookies_file_label = ttk.Label(cookies_file_row, width=20)
+        self.cookies_file_label.pack(side="left", padx=(6, 0))
+        ttk.Button(
+            cookies_file_row,
+            text="Browse...",
+            command=self._on_browse_cookies_file,
+            cursor=platform_support.CURSOR_CLICKABLE,
+        ).pack(side="left", padx=(8, 0))
+        self.cookies_file_clear_button = ttk.Button(
+            cookies_file_row,
+            text="Clear",
+            command=self._on_clear_cookies_file,
+            cursor=platform_support.CURSOR_CLICKABLE,
+        )
+        self.cookies_file_clear_button.pack(side="left", padx=(4, 0))
+
+        self.cookies_file_var.trace_add("write", lambda *_args: self._update_cookies_file_display())
+        self._update_cookies_file_display()
 
         # Tk offers no way to put widgets inside a notebook's tab strip, so the
         # pager sits in its own row directly above it. The row keeps its height
@@ -205,6 +232,34 @@ class DownloaderApp:
     def _clear_tab_messages(self):
         for tab in self.tabs:
             tab.message_label.config(text="")
+
+    def _on_browse_cookies_file(self):
+        path = filedialog.askopenfilename(
+            title="Select a cookies file",
+            filetypes=[("Cookies file", "*.txt"), ("All files", "*.*")],
+            parent=self.root,
+        )
+        if path:
+            self.cookies_file_var.set(path)
+
+    def _on_clear_cookies_file(self):
+        self.cookies_file_var.set("")
+
+    def _update_cookies_file_display(self):
+        path = self.cookies_file_var.get()
+        has_file = bool(path)
+        # A file overrides --cookies-from-browser entirely (see downloader
+        # ._cookies_flags), so the dropdown is disabled while one is set --
+        # it would otherwise imply a choice that isn't actually being used.
+        self.cookies_file_label.config(text=os.path.basename(path) if has_file else "Not set")
+        self.cookies_browser_combo.config(
+            state="disabled" if has_file else "readonly",
+            cursor=platform_support.CURSOR_DISABLED if has_file else platform_support.CURSOR_CLICKABLE,
+        )
+        self.cookies_file_clear_button.config(
+            state="normal" if has_file else "disabled",
+            cursor=platform_support.CURSOR_CLICKABLE if has_file else platform_support.CURSOR_DISABLED,
+        )
 
     # ---------------------------------------------------------- tab handling
 

@@ -13,21 +13,30 @@ def build_env():
     return env
 
 
-def _shared_flags(cookies_browser=None):
+def _cookies_flags(cookies_browser=None, cookies_file=None):
+    # A user-supplied file is a deliberate override -- it sidesteps browser
+    # cookie decryption entirely (see the Windows DPAPI/App-Bound Encryption
+    # failures --cookies-from-browser can hit), so it always wins when set.
+    if cookies_file:
+        return ["--cookies", cookies_file]
+    return ["--cookies-from-browser", cookies_browser or config.DEFAULT_COOKIES_BROWSER]
+
+
+def _shared_flags(cookies_browser=None, cookies_file=None):
     return [
-        "--cookies-from-browser", cookies_browser or config.DEFAULT_COOKIES_BROWSER,
+        *_cookies_flags(cookies_browser, cookies_file),
         "--js-runtimes", config.JS_RUNTIME,
         "-f", config.VIDEO_FORMAT,
         "--merge-output-format", config.MERGE_FORMAT,
     ]
 
 
-def build_channel_command(urls, path, playlist_items="", cookies_browser=None):
+def build_channel_command(urls, path, playlist_items="", cookies_browser=None, cookies_file=None):
     archive_file = os.path.join(path, config.CHANNEL_ARCHIVE_FILENAME)
     command = [
         config.YT_DLP_BIN,
         "-P", path,
-        *_shared_flags(cookies_browser),
+        *_shared_flags(cookies_browser, cookies_file),
     ]
     if playlist_items:
         command += ["--playlist-items", playlist_items]
@@ -49,8 +58,8 @@ def build_channel_command(urls, path, playlist_items="", cookies_browser=None):
     return command
 
 
-def build_single_command(urls, path, playlist_items="", cookies_browser=None):
-    command = [config.YT_DLP_BIN, "-P", path, *_shared_flags(cookies_browser)]
+def build_single_command(urls, path, playlist_items="", cookies_browser=None, cookies_file=None):
+    command = [config.YT_DLP_BIN, "-P", path, *_shared_flags(cookies_browser, cookies_file)]
     if playlist_items:
         command += ["--playlist-items", playlist_items]
     command += list(urls)

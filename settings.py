@@ -19,6 +19,7 @@ def defaults():
         "path": "",
         "cookies_browser": config.DEFAULT_COOKIES_BROWSER,
         "auto_close_tabs": config.DEFAULT_AUTO_CLOSE,
+        "cookies_file": "",
     }
 
 
@@ -49,16 +50,24 @@ def load():
     if isinstance(auto_close, str) and auto_close in config.AUTO_CLOSE_CHOICES:
         values["auto_close_tabs"] = auto_close
 
+    # Unlike path, a missing cookies file is silently dropped rather than
+    # kept-with-a-warning: it's a deliberate override, and passing yt-dlp a
+    # stale --cookies path would fail every download until the user notices.
+    cookies_file = stored.get("cookies_file")
+    if isinstance(cookies_file, str) and (not cookies_file or os.path.isfile(cookies_file)):
+        values["cookies_file"] = cookies_file
+
     return values
 
 
-def save(path, cookies_browser, auto_close_tabs=config.DEFAULT_AUTO_CLOSE):
+def save(path, cookies_browser, auto_close_tabs=config.DEFAULT_AUTO_CLOSE, cookies_file=""):
     target = platform_support.settings_path()
     payload = {
         "version": SETTINGS_VERSION,
         "path": path,
         "cookies_browser": cookies_browser,
         "auto_close_tabs": auto_close_tabs,
+        "cookies_file": cookies_file,
     }
 
     temp_name = None
