@@ -79,7 +79,11 @@ def run_one(name):
         # tick/close glyphs several suites print.
         command = [sys.executable, "-X", "utf8", path]
 
-    result = subprocess.run(command, cwd=PROJECT_ROOT, capture_output=True, text=True)
+    # encoding="utf-8" is separate from the child's own -X utf8 above: this
+    # is the parent decoding the bytes it captured over the pipe, which
+    # otherwise falls back to Windows's system codepage regardless of what
+    # encoding the child actually wrote in.
+    result = subprocess.run(command, cwd=PROJECT_ROOT, capture_output=True, text=True, encoding="utf-8")
     if result.returncode == 0:
         return "pass", result.stdout
     return "fail", (result.stdout or "") + (result.stderr or "")
