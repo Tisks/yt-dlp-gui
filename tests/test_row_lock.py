@@ -59,10 +59,10 @@ with tempfile.TemporaryDirectory() as d:
     assert app.tabs[0].pending_downloads > 0, "expected a pending download"
     assert state_of(row0) == ("disabled", "disabled", "disabled"), state_of(row0)
     assert state_of(row1) == ("disabled", "disabled", "disabled"), state_of(row1)
-    assert str(row0.entry.cget("cursor")) == "notallowed"
-    assert str(row0.playlist_items_entry.cget("cursor")) == "notallowed"
-    assert str(row0.archive_check.cget("cursor")) == "notallowed"
-    print("TEST 2 PASSED: rows disabled with notallowed cursor while downloading")
+    assert str(row0.entry.cget("cursor")) == _ps.CURSOR_DISABLED
+    assert str(row0.playlist_items_entry.cget("cursor")) == _ps.CURSOR_DISABLED
+    assert str(row0.archive_check.cget("cursor")) == _ps.CURSOR_DISABLED
+    print("TEST 2 PASSED: rows disabled with disabled cursor while downloading")
 
     # Cancel to force completion and confirm re-enable.
     app.tabs[0].on_cancel()
