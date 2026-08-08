@@ -72,7 +72,12 @@ def run_one(name):
             return "skip", "node not installed"
         command = ["node", path]
     else:
-        command = [sys.executable, path]
+        # Each suite runs as its own subprocess, so -X utf8 on this parent
+        # process (if the caller even set it) does not carry over -- it must
+        # be passed to this exact invocation. Without it, Windows gives a
+        # piped stdout the legacy ANSI codepage, which can't encode the
+        # tick/close glyphs several suites print.
+        command = [sys.executable, "-X", "utf8", path]
 
     result = subprocess.run(command, cwd=PROJECT_ROOT, capture_output=True, text=True)
     if result.returncode == 0:

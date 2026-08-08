@@ -34,11 +34,7 @@ jobs:
         # Gates the installer: a failing suite must not produce a downloadable
         # .exe. Exercises the Windows branches on an actual Windows runner,
         # which is the only place they run for real.
-        #
-        # -X utf8 forces UTF-8 stdio: piped/redirected output on Windows
-        # otherwise defaults to the legacy ANSI codepage (cp1252), which
-        # can't encode the ✓/✗/✕ glyphs the tests print.
-        run: python -X utf8 tests\run_tests.py
+        run: python tests\run_tests.py
 
       - name: Check extension config is in sync with config.py
         run: python scripts\generate_extension_config.py --check
